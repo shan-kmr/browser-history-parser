@@ -19,7 +19,7 @@ A Chrome extension that tracks and parses your browsing history, displaying site
 
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/browser-history-parser.git
+   git clone https://github.com/shan-kmr/browser-history-parser.git
    ```
 
 2. Open Chrome and navigate to `chrome://extensions/`

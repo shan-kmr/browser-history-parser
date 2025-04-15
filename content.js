@@ -34,4 +34,4 @@ setInterval(() => {
       timeSpent: Math.floor(totalActiveTime / 1000) // Convert to seconds
     }
   });
-}, 60000); // Update every minute 
+}, 6000); // Update every 6 seconds 
