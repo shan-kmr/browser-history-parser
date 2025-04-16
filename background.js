@@ -1,6 +1,9 @@
 // Initialize storage when extension is installed
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({ historyData: [] });
+  chrome.storage.local.set({ 
+    historyData: [],
+    timeSpentData: {}
+  });
   console.log('Extension installed, storage initialized');
 });
 
@@ -19,6 +22,119 @@ const getFriendlyTitle = (url) => {
   const domain = extractDomain(url);
   return domain.replace(/^www\./, '').split('.')[0].charAt(0).toUpperCase() + 
          domain.replace(/^www\./, '').split('.')[0].slice(1);
+};
+
+// Listen for time spent updates from content script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'updateTimeSpent' && message.data) {
+    updateTimeSpent(message.data);
+    console.log('Received time update:', message.data.url, message.data.timeSpent, 'seconds');
+  } else if (message.action === 'resetTimeData') {
+    resetTimeData();
+    if (sendResponse) {
+      sendResponse({ success: true });
+    }
+  }
+  // Keep the message channel open for async responses
+  return true;
+});
+
+// Function to update time spent data
+const updateTimeSpent = (data) => {
+  // Validate time data to prevent errors
+  if (typeof data.timeSpent !== 'number' || data.timeSpent <= 0) {
+    console.log('Invalid time data:', data.timeSpent);
+    return;
+  }
+  
+  chrome.storage.local.get(['timeSpentData'], (result) => {
+    const timeSpentData = result.timeSpentData || {};
+    const domain = data.domain || extractDomain(data.url);
+    
+    // Initialize domain data if it doesn't exist
+    if (!timeSpentData[domain]) {
+      timeSpentData[domain] = {
+        totalTime: 0,
+        visits: 0,
+        lastVisit: null,
+        pages: {}
+      };
+    }
+    
+    // Update domain level statistics
+    timeSpentData[domain].totalTime += data.timeSpent;
+    timeSpentData[domain].lastVisit = new Date().toISOString();
+    
+    // Initialize page data if it doesn't exist
+    if (!timeSpentData[domain].pages[data.url]) {
+      timeSpentData[domain].pages[data.url] = {
+        title: data.title || 'Untitled',
+        totalTime: 0,
+        visits: 0
+      };
+      timeSpentData[domain].visits++;
+    }
+    
+    // Update page level statistics
+    timeSpentData[domain].pages[data.url].totalTime += data.timeSpent;
+    timeSpentData[domain].pages[data.url].title = data.title || timeSpentData[domain].pages[data.url].title;
+    
+    // Save updated data
+    chrome.storage.local.set({ timeSpentData }, () => {
+      console.log('Time spent data updated for', domain, '+', data.timeSpent, 'seconds, total:', timeSpentData[domain].totalTime);
+    });
+    
+    // Also update the time spent in history data
+    updateHistoryItemTimeSpent(data.url, data.timeSpent);
+  });
+};
+
+// Function to update time spent in history data
+const updateHistoryItemTimeSpent = (url, timeSpent) => {
+  chrome.storage.local.get(['historyData'], (result) => {
+    const historyData = result.historyData || [];
+    let updated = false;
+    
+    // Find and update matching history items
+    const updatedHistory = historyData.map(item => {
+      // Normalize URLs for better matching
+      const normalizedItemUrl = item.url.replace(/\/$/, '').toLowerCase();
+      const normalizedUrl = url.replace(/\/$/, '').toLowerCase();
+      
+      // Match URLs with or without protocol differences (http vs https)
+      if (normalizedItemUrl === normalizedUrl || 
+          normalizedItemUrl.replace(/^https?:\/\//, '') === normalizedUrl.replace(/^https?:\/\//, '')) {
+        updated = true;
+        return {
+          ...item,
+          timeSpent: (item.timeSpent || 0) + timeSpent
+        };
+      }
+      return item;
+    });
+    
+    // Save updated history data
+    if (updated) {
+      chrome.storage.local.set({ historyData: updatedHistory });
+    }
+  });
+};
+
+// Reset time data function for debugging
+const resetTimeData = () => {
+  chrome.storage.local.set({ timeSpentData: {} });
+  
+  // Also reset time spent in history items
+  chrome.storage.local.get(['historyData'], (result) => {
+    const historyData = result.historyData || [];
+    const resetHistory = historyData.map(item => ({
+      ...item,
+      timeSpent: 0
+    }));
+    chrome.storage.local.set({ historyData: resetHistory });
+  });
+  
+  console.log('Time data has been reset');
 };
 
 // Listen for history changes
@@ -55,7 +171,8 @@ chrome.history.onVisited.addListener((historyItem) => {
         title: title || 'Untitled',
         visitTime: new Date().toISOString(),
         domain: domain,
-        faviconUrl: faviconUrl
+        faviconUrl: faviconUrl,
+        timeSpent: 0 // Initialize time spent
       };
       
       // Add to the beginning of the array

@@ -1,16 +1,56 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Tab handling
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const tabName = tab.dataset.tab;
+      
+      // Update active state
+      tabs.forEach(t => t.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+      
+      // Load time stats if needed
+      if (tabName === 'time-stats') {
+        loadTimeStats();
+      }
+    });
+  });
+
   const historyList = document.getElementById('historyList');
   const searchBox = document.getElementById('searchBox');
   const timeFilter = document.getElementById('timeFilter');
   const domainFilter = document.getElementById('domainFilter');
   const exportBtn = document.getElementById('exportBtn');
+  const resetTimeBtn = document.getElementById('resetTimeBtn');
   
   let allHistoryData = [];
+  let timeSpentData = {};
   
   // Function to format date
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString();
+  };
+  
+  // Function to format time spent with proper units
+  const formatTimeSpent = (seconds) => {
+    if (!seconds) return '0s';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${remainingSeconds}s`;
+    } else {
+      return `${remainingSeconds}s`;
+    }
   };
   
   // Function to extract domain from URL
@@ -50,6 +90,14 @@ document.addEventListener('DOMContentLoaded', () => {
     time.className = 'time';
     time.textContent = formatDate(item.visitTime);
     
+    // Add time spent badge if available
+    const timeSpent = document.createElement('span');
+    timeSpent.className = 'time-spent';
+    if (item.timeSpent) {
+      timeSpent.textContent = formatTimeSpent(item.timeSpent);
+      div.appendChild(timeSpent);
+    }
+    
     div.appendChild(domainTag);
     div.appendChild(title);
     div.appendChild(time);
@@ -67,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalVisits = document.getElementById('totalVisits');
     const uniqueSites = document.getElementById('uniqueSites');
     const topDomain = document.getElementById('topDomain');
+    const totalTimeSpent = document.getElementById('totalTimeSpent');
     
     totalVisits.textContent = filteredData.length;
     
@@ -83,6 +132,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const topDomainName = Object.entries(domainCounts)
       .sort(([,a], [,b]) => b - a)[0]?.[0] || '-';
     topDomain.textContent = topDomainName;
+    
+    // Calculate total time spent for filtered data
+    // Ensure we're only counting time once per URL to avoid duplication
+    const uniqueUrls = new Map();
+    filteredData.forEach(item => {
+      const normalizedUrl = item.url.replace(/\/$/, '').toLowerCase().replace(/^https?:\/\//, '');
+      if (!uniqueUrls.has(normalizedUrl) || (item.timeSpent || 0) > uniqueUrls.get(normalizedUrl)) {
+        uniqueUrls.set(normalizedUrl, item.timeSpent || 0);
+      }
+    });
+    
+    const totalSeconds = Array.from(uniqueUrls.values()).reduce((total, time) => total + time, 0);
+    totalTimeSpent.textContent = formatTimeSpent(totalSeconds);
   };
   
   // Function to filter history data
@@ -166,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const domains = new Set(allHistoryData.map(item => extractDomain(item.url)));
     const currentValue = domainFilter.value;
     
-    domainFilter.innerHTML = '<option value="all">All Domains</option>';
+    domainFilter.innerHTML = '<option value="all">All Sites</option>';
     [...domains].sort().forEach(domain => {
       const option = document.createElement('option');
       option.value = domain;
@@ -177,15 +239,88 @@ document.addEventListener('DOMContentLoaded', () => {
     domainFilter.value = currentValue;
   };
   
+  // Function to load time statistics
+  const loadTimeStats = () => {
+    chrome.storage.local.get(['timeSpentData'], (result) => {
+      timeSpentData = result.timeSpentData || {};
+      updateTimeStats();
+    });
+  };
+  
+  // Function to update time statistics display
+  const updateTimeStats = () => {
+    const totalBrowsingTime = document.getElementById('totalBrowsingTime');
+    const avgTimePerSite = document.getElementById('avgTimePerSite');
+    const mostTimeSpent = document.getElementById('mostTimeSpent');
+    const domainTimeStats = document.getElementById('domainTimeStats');
+    
+    // Calculate total browsing time across all domains
+    let totalSeconds = 0;
+    const domainTimeData = [];
+    
+    Object.entries(timeSpentData).forEach(([domain, data]) => {
+      totalSeconds += data.totalTime || 0;
+      
+      domainTimeData.push({
+        domain,
+        totalTime: data.totalTime || 0,
+        visits: data.visits || 0
+      });
+    });
+    
+    // Set total browsing time
+    totalBrowsingTime.textContent = formatTimeSpent(totalSeconds);
+    
+    // Calculate average time per site
+    const domainsWithTime = Object.values(timeSpentData).filter(data => data.totalTime > 0).length;
+    const averageSeconds = domainsWithTime > 0 ? Math.floor(totalSeconds / domainsWithTime) : 0;
+    avgTimePerSite.textContent = formatTimeSpent(averageSeconds);
+    
+    // Find domain with most time spent
+    if (domainTimeData.length > 0) {
+      const topTimeDomain = domainTimeData.sort((a, b) => b.totalTime - a.totalTime)[0];
+      mostTimeSpent.textContent = topTimeDomain.domain;
+    }
+    
+    // Display time stats per domain
+    domainTimeStats.innerHTML = '';
+    
+    if (domainTimeData.length === 0) {
+      domainTimeStats.innerHTML = '<div class="time-stats-item">No time data available yet</div>';
+      return;
+    }
+    
+    // Sort domains by time spent (descending)
+    domainTimeData
+      .sort((a, b) => b.totalTime - a.totalTime)
+      .forEach(data => {
+        const div = document.createElement('div');
+        div.className = 'time-stats-item';
+        
+        const domain = document.createElement('div');
+        domain.className = 'time-stats-domain';
+        domain.textContent = data.domain;
+        
+        const timeSpent = document.createElement('div');
+        timeSpent.className = 'time-stats-time';
+        timeSpent.textContent = formatTimeSpent(data.totalTime);
+        
+        div.appendChild(domain);
+        div.appendChild(timeSpent);
+        domainTimeStats.appendChild(div);
+      });
+  };
+  
   // Function to export history to CSV
   const exportToCSV = () => {
     const filtered = filterHistoryData();
     const csvContent = [
-      ['Title', 'Domain', 'Visit Time'],
+      ['Title', 'Domain', 'Visit Time', 'Time Spent'],
       ...filtered.map(item => [
         item.title || 'Untitled',
         extractDomain(item.url),
-        formatDate(item.visitTime)
+        formatDate(item.visitTime),
+        formatTimeSpent(item.timeSpent || 0)
       ])
     ].map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
     
@@ -196,15 +331,35 @@ document.addEventListener('DOMContentLoaded', () => {
     link.click();
   };
   
+  // Reset time data function
+  const resetTime = () => {
+    if (confirm('Are you sure you want to reset all time data? This cannot be undone.')) {
+      chrome.runtime.sendMessage({ action: 'resetTimeData' }, () => {
+        timeSpentData = {};
+        // Also reset time spent in history items
+        allHistoryData = allHistoryData.map(item => ({ ...item, timeSpent: 0 }));
+        updateDisplay();
+        if (document.getElementById('time-stats-tab').classList.contains('active')) {
+          updateTimeStats();
+        }
+        alert('Time data has been reset.');
+      });
+    }
+  };
+  
   // Add event listeners
   searchBox.addEventListener('input', updateDisplay);
   timeFilter.addEventListener('change', updateDisplay);
   domainFilter.addEventListener('change', updateDisplay);
   exportBtn.addEventListener('click', exportToCSV);
+  if (resetTimeBtn) {
+    resetTimeBtn.addEventListener('click', resetTime);
+  }
   
   // Load and display history
-  chrome.storage.local.get(['historyData'], (result) => {
+  chrome.storage.local.get(['historyData', 'timeSpentData'], (result) => {
     allHistoryData = result.historyData || [];
+    timeSpentData = result.timeSpentData || {};
     console.log('Loaded history data, count:', allHistoryData.length);
     updateDomainFilter();
     updateDisplay();

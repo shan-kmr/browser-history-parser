@@ -39,9 +39,13 @@
       padding: 10px;
       background: #e8f0fe;
       border-radius: 4px;
+      flex-wrap: wrap;
     }
     .stat-item {
       text-align: center;
+      flex: 1;
+      min-width: 100px;
+      margin-bottom: 5px;
     }
     .stat-value {
       font-size: 18px;
@@ -97,6 +101,19 @@
     .export-btn:hover {
       background: #3367d6;
     }
+    .reset-btn {
+      width: 100%;
+      padding: 8px;
+      background: #EA4335;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .reset-btn:hover {
+      background: #C62828;
+    }
     .site-title {
       font-weight: bold;
       margin-bottom: 4px;
@@ -106,43 +123,137 @@
       flex-direction: column;
       flex: 1;
     }
+    .time-spent {
+      color: #4285F4;
+      font-size: 11px;
+      margin-left: auto;
+      padding: 2px 6px;
+      background: #e8f0fe;
+      border-radius: 3px;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #ddd;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active {
+      border-bottom-color: #4285F4;
+      color: #4285F4;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .time-stats-container {
+      margin-top: 15px;
+    }
+    .time-stats-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .time-stats-item {
+      display: flex;
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      align-items: center;
+    }
+    .time-stats-domain {
+      flex: 1;
+    }
+    .time-stats-time {
+      color: #4285F4;
+      font-weight: bold;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+    }
+    .version {
+      text-align: center;
+      font-size: 10px;
+      color: #999;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
-  <h2>Sites You've Visited</h2>
-  <div class="controls">
-    <input type="text" class="search-box" id="searchBox" placeholder="Search sites...">
-    <div class="filters">
-      <select class="filter-select" id="timeFilter">
-        <option value="all">All Time</option>
-        <option value="today">Today</option>
-        <option value="yesterday">Yesterday</option>
-        <option value="week">This Week</option>
-        <option value="month">This Month</option>
-      </select>
-      <select class="filter-select" id="domainFilter">
-        <option value="all">All Sites</option>
-      </select>
-    </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="history">History</div>
+    <div class="tab" data-tab="time-stats">Time Stats</div>
   </div>
 
-  <div class="stats">
-    <div class="stat-item">
-      <div class="stat-value" id="totalVisits">0</div>
-      <div class="stat-label">Total Visits</div>
+  <div class="tab-content active" id="history-tab">
+    <div class="controls">
+      <input type="text" class="search-box" id="searchBox" placeholder="Search sites...">
+      <div class="filters">
+        <select class="filter-select" id="timeFilter">
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+        <select class="filter-select" id="domainFilter">
+          <option value="all">All Sites</option>
+        </select>
+      </div>
     </div>
-    <div class="stat-item">
-      <div class="stat-value" id="uniqueSites">0</div>
-      <div class="stat-label">Unique Sites</div>
+
+    <div class="stats">
+      <div class="stat-item">
+        <div class="stat-value" id="totalVisits">0</div>
+        <div class="stat-label">Total Visits</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="uniqueSites">0</div>
+        <div class="stat-label">Unique Sites</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="topDomain">-</div>
+        <div class="stat-label">Most Visited</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="totalTimeSpent">0s</div>
+        <div class="stat-label">Time Spent</div>
+      </div>
     </div>
-    <div class="stat-item">
-      <div class="stat-value" id="topDomain">-</div>
-      <div class="stat-label">Most Visited</div>
-    </div>
+
+    <div id="historyList"></div>
+    <button class="export-btn" id="exportBtn">Export History to CSV</button>
   </div>
 
-  <div id="historyList"></div>
-  <button class="export-btn" id="exportBtn">Export History to CSV</button>
+  <div class="tab-content" id="time-stats-tab">
+    <div class="stats">
+      <div class="stat-item">
+        <div class="stat-value" id="totalBrowsingTime">0s</div>
+        <div class="stat-label">Total Browsing</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="avgTimePerSite">0s</div>
+        <div class="stat-label">Avg Per Site</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="mostTimeSpent">-</div>
+        <div class="stat-label">Most Time On</div>
+      </div>
+    </div>
+
+    <div class="time-stats-container">
+      <div class="time-stats-title">Time Spent Per Domain</div>
+      <div id="domainTimeStats"></div>
+    </div>
+    
+    <button class="reset-btn" id="resetTimeBtn">Reset All Time Data</button>
+    <div class="version">Version 1.0.1 - Time tracking fixed</div>
+  </div>
   
   <script src="popup.js"></script>
 </body>
