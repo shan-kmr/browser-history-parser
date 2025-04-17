@@ -13,9 +13,11 @@ document.addEventListener('DOMContentLoaded', () => {
       tab.classList.add('active');
       document.getElementById(`${tabName}-tab`).classList.add('active');
       
-      // Load time stats if needed
+      // Load appropriate data for the tab
       if (tabName === 'time-stats') {
         loadTimeStats();
+      } else if (tabName === 'reading-insights') {
+        loadReadingInsights();
       }
     });
   });
@@ -27,8 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportBtn = document.getElementById('exportBtn');
   const resetTimeBtn = document.getElementById('resetTimeBtn');
   
+  // Reading insights elements
+  const insightsList = document.getElementById('insightsList');
+  const insightSearchBox = document.getElementById('insightSearchBox');
+  const categoryFilter = document.getElementById('categoryFilter');
+  
   let allHistoryData = [];
   let timeSpentData = {};
+  let readingInsights = [];
+  let activeCategories = new Set(['all']);
   
   // Function to format date
   const formatDate = (dateString) => {
@@ -110,6 +119,35 @@ document.addEventListener('DOMContentLoaded', () => {
     return div;
   };
   
+  // Function to create insight item element
+  const createInsightItem = (insight) => {
+    const div = document.createElement('div');
+    div.className = 'insight-item';
+    
+    const category = document.createElement('div');
+    category.className = 'insight-category';
+    category.textContent = insight.category;
+    
+    const content = document.createElement('div');
+    content.className = 'insight-content';
+    content.textContent = insight.content;
+    
+    const source = document.createElement('div');
+    source.className = 'insight-source';
+    source.textContent = `From: ${insight.source} · ${formatDate(insight.timestamp)}`;
+    
+    div.appendChild(category);
+    div.appendChild(content);
+    div.appendChild(source);
+    
+    // Add click handler to open the URL
+    div.addEventListener('click', () => {
+      chrome.tabs.create({ url: insight.url });
+    });
+    
+    return div;
+  };
+  
   // Function to update statistics
   const updateStats = (filteredData) => {
     const totalVisits = document.getElementById('totalVisits');
@@ -145,6 +183,29 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const totalSeconds = Array.from(uniqueUrls.values()).reduce((total, time) => total + time, 0);
     totalTimeSpent.textContent = formatTimeSpent(totalSeconds);
+  };
+  
+  // Function to update insight statistics
+  const updateInsightStats = (filteredInsights) => {
+    const totalInsights = document.getElementById('totalInsights');
+    const totalCategories = document.getElementById('totalCategories');
+    const topCategory = document.getElementById('topCategory');
+    
+    totalInsights.textContent = filteredInsights.length;
+    
+    const categories = filteredInsights.map(item => item.category);
+    const uniqueCategories = new Set(categories);
+    totalCategories.textContent = uniqueCategories.size;
+    
+    // Find top category
+    const categoryCounts = {};
+    categories.forEach(category => {
+      categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+    });
+    
+    const topCategoryName = Object.entries(categoryCounts)
+      .sort(([,a], [,b]) => b - a)[0]?.[0] || '-';
+    topCategory.textContent = topCategoryName;
   };
   
   // Function to filter history data
@@ -206,7 +267,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return filtered;
   };
   
-  // Function to update the display
+  // Function to filter reading insights
+  const filterReadingInsights = () => {
+    const searchTerm = insightSearchBox ? insightSearchBox.value.toLowerCase() : '';
+    
+    let filtered = readingInsights;
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(item => 
+        (item.content && item.content.toLowerCase().includes(searchTerm)) ||
+        (item.source && item.source.toLowerCase().includes(searchTerm)) ||
+        (item.category && item.category.toLowerCase().includes(searchTerm))
+      );
+    }
+    
+    // Apply category filter
+    if (activeCategories.size > 0 && !activeCategories.has('all')) {
+      filtered = filtered.filter(item => activeCategories.has(item.category));
+    }
+    
+    return filtered;
+  };
+  
+  // Function to update the history display
   const updateDisplay = () => {
     const filtered = filterHistoryData();
     historyList.innerHTML = '';
@@ -221,6 +305,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     updateStats(filtered);
+  };
+  
+  // Function to update the insights display
+  const updateInsightsDisplay = () => {
+    const filtered = filterReadingInsights();
+    insightsList.innerHTML = '';
+    
+    if (filtered.length === 0) {
+      insightsList.innerHTML = '<div class="insight-item">No matching insights found</div>';
+      return;
+    }
+    
+    filtered.forEach(item => {
+      insightsList.appendChild(createInsightItem(item));
+    });
+    
+    updateInsightStats(filtered);
   };
   
   // Function to update domain filter options
@@ -239,11 +340,78 @@ document.addEventListener('DOMContentLoaded', () => {
     domainFilter.value = currentValue;
   };
   
+  // Function to update category filter options
+  const updateCategoryFilter = () => {
+    const categories = new Set(readingInsights.map(item => item.category));
+    categoryFilter.innerHTML = '';
+    
+    // Add "All" button
+    const allBtn = document.createElement('div');
+    allBtn.className = 'category-btn' + (activeCategories.has('all') ? ' active' : '');
+    allBtn.textContent = 'All';
+    allBtn.dataset.category = 'all';
+    categoryFilter.appendChild(allBtn);
+    
+    // Add category buttons
+    [...categories].sort().forEach(category => {
+      const btn = document.createElement('div');
+      btn.className = 'category-btn' + (activeCategories.has(category) ? ' active' : '');
+      btn.textContent = category;
+      btn.dataset.category = category;
+      categoryFilter.appendChild(btn);
+    });
+    
+    // Add click handlers
+    document.querySelectorAll('.category-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const category = btn.dataset.category;
+        
+        if (category === 'all') {
+          // If "All" is clicked, make it the only active category
+          activeCategories.clear();
+          activeCategories.add('all');
+        } else {
+          // If a specific category is clicked, remove "All" and toggle this category
+          activeCategories.delete('all');
+          if (activeCategories.has(category)) {
+            activeCategories.delete(category);
+            // If no categories are selected, select "All"
+            if (activeCategories.size === 0) {
+              activeCategories.add('all');
+            }
+          } else {
+            activeCategories.add(category);
+          }
+        }
+        
+        // Update UI and display
+        document.querySelectorAll('.category-btn').forEach(b => {
+          if (b.dataset.category === 'all') {
+            b.classList.toggle('active', activeCategories.has('all'));
+          } else {
+            b.classList.toggle('active', activeCategories.has(b.dataset.category));
+          }
+        });
+        
+        updateInsightsDisplay();
+      });
+    });
+  };
+  
   // Function to load time statistics
   const loadTimeStats = () => {
     chrome.storage.local.get(['timeSpentData'], (result) => {
       timeSpentData = result.timeSpentData || {};
       updateTimeStats();
+    });
+  };
+  
+  // Function to load reading insights
+  const loadReadingInsights = () => {
+    chrome.storage.local.get(['readingInsights'], (result) => {
+      readingInsights = result.readingInsights || [];
+      updateCategoryFilter();
+      updateInsightsDisplay();
     });
   };
   
@@ -356,12 +524,26 @@ document.addEventListener('DOMContentLoaded', () => {
     resetTimeBtn.addEventListener('click', resetTime);
   }
   
-  // Load and display history
-  chrome.storage.local.get(['historyData', 'timeSpentData'], (result) => {
+  // Add insight search event listener
+  if (insightSearchBox) {
+    insightSearchBox.addEventListener('input', updateInsightsDisplay);
+  }
+  
+  // Load and display history and insights
+  chrome.storage.local.get(['historyData', 'timeSpentData', 'readingInsights'], (result) => {
     allHistoryData = result.historyData || [];
     timeSpentData = result.timeSpentData || {};
+    readingInsights = result.readingInsights || [];
     console.log('Loaded history data, count:', allHistoryData.length);
+    console.log('Loaded insights data, count:', readingInsights.length);
+    
     updateDomainFilter();
     updateDisplay();
+    
+    // Initialize Reading Insights if it's the active tab
+    if (document.getElementById('reading-insights-tab').classList.contains('active')) {
+      updateCategoryFilter();
+      updateInsightsDisplay();
+    }
   });
 }); 

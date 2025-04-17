@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Browser History Parser",
-  "version": "1.0",
-  "description": "Tracks and parses your browsing history in real-time",
+  "version": "1.1.0",
+  "description": "Tracks your browsing history, time spent, and extracts reading insights from web pages",
   "permissions": [
     "history",
     "storage",

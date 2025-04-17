@@ -49,6 +49,92 @@ function sendTimeUpdate(timeInSeconds) {
   lastReportedTime = Date.now();
 }
 
+// Reading insights extraction
+function extractReadingInsights() {
+  // Simple categories for prototype
+  const categories = ['Technology', 'Business', 'Science', 'Health', 'Education', 'Entertainment'];
+  
+  // Keywords associated with each category
+  const categoryKeywords = {
+    'Technology': ['software', 'programming', 'app', 'tech', 'digital', 'computer', 'code', 'data', 'ai', 'artificial intelligence'],
+    'Business': ['company', 'market', 'finance', 'investment', 'startup', 'entrepreneur', 'economy', 'stock', 'revenue'],
+    'Science': ['research', 'study', 'scientist', 'experiment', 'discovery', 'physics', 'biology', 'chemistry', 'theory'],
+    'Health': ['medical', 'health', 'disease', 'treatment', 'doctor', 'patient', 'therapy', 'medicine', 'wellness'],
+    'Education': ['learn', 'student', 'school', 'university', 'course', 'education', 'teacher', 'academy', 'degree'],
+    'Entertainment': ['movie', 'music', 'game', 'show', 'artist', 'play', 'actor', 'film', 'entertainment']
+  };
+  
+  // Extract meaningful content from the page
+  const insights = [];
+  
+  // Get paragraphs with reasonable length (likely to contain meaningful content)
+  const paragraphs = Array.from(document.querySelectorAll('p'))
+    .filter(p => p.textContent.trim().length > 100 && p.textContent.trim().split(' ').length > 15)
+    .map(p => p.textContent.trim());
+  
+  // Get headings
+  const headings = Array.from(document.querySelectorAll('h1, h2, h3'))
+    .map(h => h.textContent.trim())
+    .filter(h => h.length > 10);
+  
+  // Function to categorize text
+  function categorizeText(text) {
+    const lowerText = text.toLowerCase();
+    const matches = {};
+    
+    // Count keyword matches for each category
+    Object.entries(categoryKeywords).forEach(([category, keywords]) => {
+      matches[category] = keywords.filter(keyword => lowerText.includes(keyword.toLowerCase())).length;
+    });
+    
+    // Find category with most keyword matches
+    const topCategory = Object.entries(matches)
+      .filter(([_, count]) => count > 0) // Only consider categories with matches
+      .sort(([_, countA], [__, countB]) => countB - countA)[0];
+    
+    return topCategory ? topCategory[0] : 'General'; // Default to General if no clear match
+  }
+  
+  // Process paragraphs (limit to 3 for prototype)
+  paragraphs.slice(0, 3).forEach(text => {
+    // Truncate long paragraphs
+    const truncatedText = text.length > 200 ? text.substring(0, 200) + '...' : text;
+    
+    insights.push({
+      category: categorizeText(text),
+      content: truncatedText,
+      source: document.title,
+      url: window.location.href,
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  // Process headings
+  headings.slice(0, 2).forEach(text => {
+    insights.push({
+      category: categorizeText(text),
+      content: text,
+      source: document.title,
+      url: window.location.href,
+      timestamp: new Date().toISOString(),
+      isHeading: true
+    });
+  });
+  
+  // Only send if we found insights
+  if (insights.length > 0) {
+    chrome.runtime.sendMessage({
+      action: 'saveReadingInsights',
+      data: {
+        url: window.location.href,
+        title: document.title,
+        domain: window.location.hostname,
+        insights: insights
+      }
+    });
+  }
+}
+
 // Send time spent data periodically
 setInterval(() => {
   // Only calculate and send if page is active
@@ -62,4 +148,20 @@ setInterval(() => {
       lastActiveTime = now; // Reset the active time counter
     }
   }
-}, 3000); // Check every 3 seconds 
+}, 3000); // Check every 3 seconds
+
+// Extract reading insights when page has loaded and user has spent some time (10 seconds)
+setTimeout(() => {
+  if (document.visibilityState === 'visible') {
+    extractReadingInsights();
+  }
+}, 10000);
+
+// Also extract insights when the user has scrolled significantly (they've likely read content)
+let hasExtractedAfterScroll = false;
+window.addEventListener('scroll', () => {
+  if (!hasExtractedAfterScroll && window.scrollY > window.innerHeight) {
+    hasExtractedAfterScroll = true;
+    extractReadingInsights();
+  }
+}); 

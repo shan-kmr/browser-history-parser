@@ -2,7 +2,8 @@
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({ 
     historyData: [],
-    timeSpentData: {}
+    timeSpentData: {},
+    readingInsights: []
   });
   console.log('Extension installed, storage initialized');
 });
@@ -34,10 +35,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sendResponse) {
       sendResponse({ success: true });
     }
+  } else if (message.action === 'saveReadingInsights' && message.data) {
+    saveReadingInsights(message.data);
+    console.log('Received reading insights from:', message.data.url);
   }
   // Keep the message channel open for async responses
   return true;
 });
+
+// Function to save reading insights
+const saveReadingInsights = (data) => {
+  if (!data.insights || !Array.isArray(data.insights) || data.insights.length === 0) {
+    console.log('No valid insights to save');
+    return;
+  }
+  
+  chrome.storage.local.get(['readingInsights'], (result) => {
+    const readingInsights = result.readingInsights || [];
+    
+    // Add domain and metadata to each insight
+    const newInsights = data.insights.map(insight => ({
+      ...insight,
+      domain: data.domain
+    }));
+    
+    // Add new insights, limit total to 500 to prevent storage issues
+    const updatedInsights = [...newInsights, ...readingInsights].slice(0, 500);
+    
+    // Save to storage
+    chrome.storage.local.set({ readingInsights: updatedInsights }, () => {
+      console.log('Reading insights saved, count:', updatedInsights.length);
+    });
+  });
+};
 
 // Function to update time spent data
 const updateTimeSpent = (data) => {

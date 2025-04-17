@@ -182,12 +182,55 @@
       color: #999;
       margin-top: 10px;
     }
+    .insight-item {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 8px;
+    }
+    .insight-category {
+      font-size: 11px;
+      background: #e8f0fe;
+      padding: 2px 6px;
+      border-radius: 3px;
+      display: inline-block;
+      margin-bottom: 4px;
+      color: #4285F4;
+    }
+    .insight-content {
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .insight-source {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+    .category-filter {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .category-btn {
+      font-size: 12px;
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #f5f5f5;
+      cursor: pointer;
+    }
+    .category-btn.active {
+      background: #4285F4;
+      color: white;
+      border-color: #4285F4;
+    }
   </style>
 </head>
 <body>
   <div class="tabs">
     <div class="tab active" data-tab="history">History</div>
     <div class="tab" data-tab="time-stats">Time Stats</div>
+    <div class="tab" data-tab="reading-insights">Reading Insights</div>
   </div>
 
   <div class="tab-content active" id="history-tab">
@@ -253,6 +296,34 @@
     
     <button class="reset-btn" id="resetTimeBtn">Reset All Time Data</button>
     <div class="version">Version 1.0.1 - Time tracking fixed</div>
+  </div>
+  
+  <div class="tab-content" id="reading-insights-tab">
+    <div class="stats">
+      <div class="stat-item">
+        <div class="stat-value" id="totalInsights">0</div>
+        <div class="stat-label">Total Insights</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="totalCategories">0</div>
+        <div class="stat-label">Categories</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="topCategory">-</div>
+        <div class="stat-label">Top Category</div>
+      </div>
+    </div>
+    
+    <div class="controls">
+      <input type="text" class="search-box" id="insightSearchBox" placeholder="Search insights...">
+      <div class="category-filter" id="categoryFilter">
+        <!-- Category buttons will be added here dynamically -->
+      </div>
+    </div>
+    
+    <div id="insightsList" class="time-stats-container">
+      <!-- Insights will be displayed here -->
+    </div>
   </div>
   
   <script src="popup.js"></script>
