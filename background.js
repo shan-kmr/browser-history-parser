@@ -56,11 +56,30 @@ const saveReadingInsights = (data) => {
     // Add domain and metadata to each insight
     const newInsights = data.insights.map(insight => ({
       ...insight,
-      domain: data.domain
+      domain: data.domain,
+      insightId: generateInsightId(insight.url, insight.content.substring(0, 50)) // Create unique ID for deduplication
     }));
     
+    // Filter out existing insights from the same URL with similar content
+    const existingInsightIds = new Set();
+    const filteredCurrentInsights = readingInsights.filter(insight => {
+      // Keep insights from different URLs
+      if (insight.url !== data.url) {
+        existingInsightIds.add(insight.insightId || generateInsightId(insight.url, insight.content.substring(0, 50)));
+        return true;
+      }
+      return false;
+    });
+    
+    // Only add new insights that don't exist already
+    const uniqueNewInsights = newInsights.filter(insight => 
+      !existingInsightIds.has(insight.insightId)
+    );
+    
+    console.log(`Found ${uniqueNewInsights.length} new unique insights from ${data.url}`);
+    
     // Add new insights, limit total to 500 to prevent storage issues
-    const updatedInsights = [...newInsights, ...readingInsights].slice(0, 500);
+    const updatedInsights = [...uniqueNewInsights, ...filteredCurrentInsights].slice(0, 500);
     
     // Save to storage
     chrome.storage.local.set({ readingInsights: updatedInsights }, () => {
@@ -68,6 +87,12 @@ const saveReadingInsights = (data) => {
     });
   });
 };
+
+// Helper function to generate a consistent ID for insights based on URL and content
+function generateInsightId(url, contentPrefix) {
+  // Use URL + first 50 chars of content to create a unique identifier
+  return `${url.replace(/^https?:\/\//, '')}:${contentPrefix}`.replace(/[^a-zA-Z0-9]/g, '');
+}
 
 // Function to update time spent data
 const updateTimeSpent = (data) => {

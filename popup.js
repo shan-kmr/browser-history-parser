@@ -529,6 +529,48 @@ document.addEventListener('DOMContentLoaded', () => {
     insightSearchBox.addEventListener('input', updateInsightsDisplay);
   }
   
+  // Add reading insights buttons event listeners
+  const refreshInsightsBtn = document.getElementById('refreshInsightsBtn');
+  const clearInsightsBtn = document.getElementById('clearInsightsBtn');
+  
+  if (refreshInsightsBtn) {
+    refreshInsightsBtn.addEventListener('click', () => {
+      // Get the current active tab
+      chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+        if (tabs && tabs.length > 0) {
+          const activeTab = tabs[0];
+          // Send message to content script to force refresh insights
+          chrome.tabs.sendMessage(activeTab.id, {action: 'forceRefreshInsights'}, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error("Error sending message:", chrome.runtime.lastError);
+              return;
+            }
+            
+            if (response && response.success) {
+              // Wait a moment for insights to be processed
+              setTimeout(() => {
+                loadReadingInsights();
+              }, 500);
+            }
+          });
+        }
+      });
+    });
+  }
+  
+  if (clearInsightsBtn) {
+    clearInsightsBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear all reading insights? This cannot be undone.')) {
+        chrome.storage.local.set({readingInsights: []}, () => {
+          readingInsights = [];
+          updateCategoryFilter();
+          updateInsightsDisplay();
+          alert('All reading insights have been cleared.');
+        });
+      }
+    });
+  }
+  
   // Load and display history and insights
   chrome.storage.local.get(['historyData', 'timeSpentData', 'readingInsights'], (result) => {
     allHistoryData = result.historyData || [];

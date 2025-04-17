@@ -2,6 +2,13 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'getTitle') {
     sendResponse({ title: document.title });
+  } else if (request.action === 'forceRefreshInsights') {
+    console.log('Force refreshing insights from current page');
+    // Reset the extraction flag to allow re-extraction
+    hasExtractedInsights = false;
+    // Extract insights immediately
+    extractReadingInsights();
+    sendResponse({ success: true });
   }
   return true;
 });
@@ -11,6 +18,9 @@ let startTime = Date.now();
 let lastActiveTime = startTime;
 let lastReportedTime = 0; // Track time already reported to avoid double counting
 let isPageActive = document.visibilityState === 'visible';
+
+// Track if insights have been extracted from this page already
+let hasExtractedInsights = false;
 
 // Update active time when page is visible
 document.addEventListener('visibilitychange', () => {
@@ -51,6 +61,12 @@ function sendTimeUpdate(timeInSeconds) {
 
 // Reading insights extraction
 function extractReadingInsights() {
+  // Skip if we've already extracted insights
+  if (hasExtractedInsights) {
+    console.log('Insights already extracted from this page');
+    return;
+  }
+  
   // Simple categories for prototype
   const categories = ['Technology', 'Business', 'Science', 'Health', 'Education', 'Entertainment'];
   
@@ -132,6 +148,10 @@ function extractReadingInsights() {
         insights: insights
       }
     });
+    
+    // Mark that we've extracted insights from this page
+    hasExtractedInsights = true;
+    console.log(`Extracted ${insights.length} insights from page`);
   }
 }
 
@@ -152,7 +172,7 @@ setInterval(() => {
 
 // Extract reading insights when page has loaded and user has spent some time (10 seconds)
 setTimeout(() => {
-  if (document.visibilityState === 'visible') {
+  if (document.visibilityState === 'visible' && !hasExtractedInsights) {
     extractReadingInsights();
   }
 }, 10000);
@@ -160,7 +180,7 @@ setTimeout(() => {
 // Also extract insights when the user has scrolled significantly (they've likely read content)
 let hasExtractedAfterScroll = false;
 window.addEventListener('scroll', () => {
-  if (!hasExtractedAfterScroll && window.scrollY > window.innerHeight) {
+  if (!hasExtractedAfterScroll && !hasExtractedInsights && window.scrollY > window.innerHeight) {
     hasExtractedAfterScroll = true;
     extractReadingInsights();
   }
