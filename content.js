@@ -9,6 +9,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Extract insights immediately
     extractReadingInsights();
     sendResponse({ success: true });
+  } else if (request.action === 'scrollToInsight') {
+    scrollToInsight(request.data);
+    sendResponse({ success: true });
   }
   return true;
 });
@@ -85,13 +88,11 @@ function extractReadingInsights() {
   
   // Get paragraphs with reasonable length (likely to contain meaningful content)
   const paragraphs = Array.from(document.querySelectorAll('p'))
-    .filter(p => p.textContent.trim().length > 100 && p.textContent.trim().split(' ').length > 15)
-    .map(p => p.textContent.trim());
+    .filter(p => p.textContent.trim().length > 100 && p.textContent.trim().split(' ').length > 15);
   
   // Get headings
   const headings = Array.from(document.querySelectorAll('h1, h2, h3'))
-    .map(h => h.textContent.trim())
-    .filter(h => h.length > 10);
+    .filter(h => h.textContent.trim().length > 10);
   
   // Function to categorize text
   function categorizeText(text) {
@@ -112,28 +113,49 @@ function extractReadingInsights() {
   }
   
   // Process paragraphs (limit to 3 for prototype)
-  paragraphs.slice(0, 3).forEach(text => {
+  paragraphs.slice(0, 3).forEach(element => {
+    const text = element.textContent.trim();
     // Truncate long paragraphs
     const truncatedText = text.length > 200 ? text.substring(0, 200) + '...' : text;
+    
+    // Store element position data for scrolling later
+    const rect = element.getBoundingClientRect();
+    const offsetY = window.pageYOffset + rect.top;
+    const xpath = getElementXPath(element);
     
     insights.push({
       category: categorizeText(text),
       content: truncatedText,
       source: document.title,
       url: window.location.href,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      position: {
+        offsetY: offsetY,
+        xpath: xpath
+      }
     });
   });
   
   // Process headings
-  headings.slice(0, 2).forEach(text => {
+  headings.slice(0, 2).forEach(element => {
+    const text = element.textContent.trim();
+    
+    // Store element position data for scrolling later
+    const rect = element.getBoundingClientRect();
+    const offsetY = window.pageYOffset + rect.top;
+    const xpath = getElementXPath(element);
+    
     insights.push({
       category: categorizeText(text),
       content: text,
       source: document.title,
       url: window.location.href,
       timestamp: new Date().toISOString(),
-      isHeading: true
+      isHeading: true,
+      position: {
+        offsetY: offsetY,
+        xpath: xpath
+      }
     });
   });
   
@@ -153,6 +175,34 @@ function extractReadingInsights() {
     hasExtractedInsights = true;
     console.log(`Extracted ${insights.length} insights from page`);
   }
+}
+
+// Function to get XPath of an element (for finding it later)
+function getElementXPath(element) {
+  if (!element) return '';
+  
+  if (element.id) {
+    return `//*[@id="${element.id}"]`;
+  }
+  
+  if (element === document.body) {
+    return '/html/body';
+  }
+  
+  let index = 0;
+  let sibling = element;
+  
+  // Count preceding siblings with same tag
+  while (sibling) {
+    if (sibling.nodeName === element.nodeName) {
+      index++;
+    }
+    sibling = sibling.previousElementSibling;
+  }
+  
+  // Get the xpath of the parent and append the current element
+  const parentPath = getElementXPath(element.parentNode);
+  return `${parentPath}/${element.nodeName.toLowerCase()}[${index}]`;
 }
 
 // Send time spent data periodically
@@ -184,4 +234,65 @@ window.addEventListener('scroll', () => {
     hasExtractedAfterScroll = true;
     extractReadingInsights();
   }
-}); 
+});
+
+// Function to scroll to and highlight insight
+function scrollToInsight(data) {
+  if (!data || !data.position) {
+    console.error('No position data for insight');
+    return;
+  }
+  
+  let targetElement = null;
+  
+  // Try to find element by XPath first
+  if (data.position.xpath) {
+    try {
+      const result = document.evaluate(
+        data.position.xpath, 
+        document, 
+        null, 
+        XPathResult.FIRST_ORDERED_NODE_TYPE, 
+        null
+      );
+      targetElement = result.singleNodeValue;
+    } catch (e) {
+      console.error('XPath evaluation failed:', e);
+    }
+  }
+  
+  // If element found by XPath, scroll to it
+  if (targetElement) {
+    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    highlightElement(targetElement);
+  } 
+  // Fallback to using stored Y position
+  else if (data.position.offsetY) {
+    window.scrollTo({
+      top: data.position.offsetY,
+      behavior: 'smooth'
+    });
+  }
+}
+
+// Function to temporarily highlight an element
+function highlightElement(element) {
+  if (!element) return;
+  
+  // Save original styles
+  const originalBackground = element.style.backgroundColor;
+  const originalTransition = element.style.transition;
+  
+  // Add highlight effect
+  element.style.transition = 'background-color 1s ease-in-out';
+  element.style.backgroundColor = '#FFFF66';
+  
+  // Remove highlight after animation
+  setTimeout(() => {
+    element.style.backgroundColor = originalBackground;
+    // Restore original transition after animation completes
+    setTimeout(() => {
+      element.style.transition = originalTransition;
+    }, 1000);
+  }, 2000);
+} 
