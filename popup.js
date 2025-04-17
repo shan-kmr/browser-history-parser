@@ -142,26 +142,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Add click handler to open the URL and scroll to the content
     div.addEventListener('click', () => {
-      // First open the tab
-      chrome.tabs.create({ url: insight.url, active: true }, (tab) => {
-        // Wait for the page to load before trying to scroll
-        const checkTabLoaded = (tabId, changeInfo) => {
-          if (tabId === tab.id && changeInfo.status === 'complete') {
-            // Once the tab is loaded, send a message to scroll to the insight
-            setTimeout(() => {
-              chrome.tabs.sendMessage(tab.id, {
-                action: 'scrollToInsight',
-                data: insight
-              });
-            }, 500); // Short delay to ensure page is fully rendered
-            
-            // Remove the listener once we've sent the message
-            chrome.tabs.onUpdated.removeListener(checkTabLoaded);
-          }
-        };
+      // Store insight data in local storage for the content script to access
+      chrome.storage.local.set({
+        'currentInsight': {
+          position: insight.position,
+          content: insight.content,
+          url: insight.url,
+          timestamp: new Date().getTime()
+        }
+      }, () => {
+        // First open the tab with a special query parameter to indicate we want to scroll
+        const urlObj = new URL(insight.url);
+        urlObj.searchParams.set('scrollToInsight', 'true');
+        urlObj.searchParams.set('insightTime', new Date().getTime());
         
-        // Add a listener to wait for the tab to finish loading
-        chrome.tabs.onUpdated.addListener(checkTabLoaded);
+        chrome.tabs.create({ url: urlObj.toString(), active: true });
       });
     });
     

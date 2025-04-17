@@ -236,17 +236,71 @@ window.addEventListener('scroll', () => {
   }
 });
 
+// On page load, check if we need to scroll to an insight
+document.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('scrollToInsight')) {
+    console.log('This page was opened from an insight, attempting to scroll...');
+    
+    // Wait for the page to be more fully loaded before scrolling
+    setTimeout(() => {
+      // Get the insight data from storage
+      chrome.storage.local.get(['currentInsight'], (result) => {
+        if (result.currentInsight) {
+          const insight = result.currentInsight;
+          
+          // Verify this is the correct page and recent request (within last minute)
+          const currentUrl = window.location.href.split('?')[0]; // Remove query params
+          const insightUrl = insight.url.split('?')[0]; // Remove query params
+          const isRecentRequest = (new Date().getTime() - insight.timestamp) < 60000; // Within a minute
+          
+          if (currentUrl === insightUrl && isRecentRequest) {
+            console.log('Found insight data for this page, scrolling to content');
+            scrollToInsight(insight);
+          }
+        }
+      });
+    }, 1000); // Give page time to render
+  }
+});
+
+// Try to find element by content first, then fallback to XPath
+function findElementByContent(content) {
+  // Look for paragraphs with this content
+  const paragraphs = Array.from(document.querySelectorAll('p'));
+  for (const p of paragraphs) {
+    if (p.textContent.trim().includes(content.substring(0, 100))) {
+      return p;
+    }
+  }
+  
+  // Look for headings with this content
+  const headings = Array.from(document.querySelectorAll('h1, h2, h3'));
+  for (const h of headings) {
+    if (h.textContent.trim().includes(content.substring(0, 50))) {
+      return h;
+    }
+  }
+  
+  return null;
+}
+
 // Function to scroll to and highlight insight
 function scrollToInsight(data) {
-  if (!data || !data.position) {
-    console.error('No position data for insight');
+  if (!data) {
+    console.error('No insight data provided');
     return;
   }
   
   let targetElement = null;
   
-  // Try to find element by XPath first
-  if (data.position.xpath) {
+  // Try to find element by content first (more reliable than XPath)
+  if (data.content) {
+    targetElement = findElementByContent(data.content);
+  }
+  
+  // If not found by content, try XPath
+  if (!targetElement && data.position && data.position.xpath) {
     try {
       const result = document.evaluate(
         data.position.xpath, 
@@ -261,17 +315,21 @@ function scrollToInsight(data) {
     }
   }
   
-  // If element found by XPath, scroll to it
+  // If element found, scroll to it
   if (targetElement) {
+    console.log('Element found, scrolling into view');
     targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
     highlightElement(targetElement);
   } 
   // Fallback to using stored Y position
-  else if (data.position.offsetY) {
+  else if (data.position && data.position.offsetY) {
+    console.log('Using position fallback, scrolling to Y position');
     window.scrollTo({
       top: data.position.offsetY,
       behavior: 'smooth'
     });
+  } else {
+    console.error('Could not find element to scroll to');
   }
 }
 
