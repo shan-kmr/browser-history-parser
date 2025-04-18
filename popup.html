@@ -314,6 +314,10 @@
       </div>
     </div>
     
+    <div id="statusMessage" style="display: none; margin: 10px 0; padding: 8px 12px; border-radius: 4px; font-size: 13px;">
+      Processing content with GPT-4o...
+    </div>
+    
     <div class="controls">
       <input type="text" class="search-box" id="insightSearchBox" placeholder="Search insights...">
       <div class="category-filter" id="categoryFilter">
@@ -328,6 +332,15 @@
     <div class="button-group">
       <button class="export-btn" id="refreshInsightsBtn">Refresh Current Page Insights</button>
       <button class="reset-btn" id="clearInsightsBtn">Clear All Insights</button>
+    </div>
+    
+    <div class="api-key-container" style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+      <div style="font-weight: bold; margin-bottom: 5px;">OpenAI API Key</div>
+      <div style="font-size: 11px; color: #666; margin-bottom: 10px;">Required for GPT-4o insights extraction</div>
+      <div style="display: flex; gap: 10px;">
+        <input type="password" id="apiKeyInput" class="search-box" placeholder="Enter your OpenAI API key" style="flex: 1;">
+        <button id="saveApiKeyBtn" class="export-btn" style="width: auto;">Save Key</button>
+      </div>
     </div>
   </div>
   

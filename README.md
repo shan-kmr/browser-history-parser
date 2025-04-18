@@ -1,46 +1,92 @@
-# Browser History Parser
+# Rex: Reading Experience Extension
 
-A Chrome extension that tracks and parses your browsing history, displaying sites by their titles for easier navigation and search.
+Rex is a powerful browser extension that helps you track your online reading habits, analyze content, and generate insightful summaries using OpenAI's GPT models. It provides valuable statistics about your browsing patterns and extracts key insights from the web pages you visit.
 
 ## Features
 
-- Real-time tracking of sites you visit
-- Clean, title-focused interface
-- Search functionality for finding previously visited sites
-- Filtering by time period (Today, Yesterday, This Week, This Month)
-- Domain filtering
-- Statistics about your browsing habits
-- CSV export of your browsing history
-- Favicon display for visual identification
+### Content Analysis and Insights
+- **AI-Powered Reading Insights**: Automatically extracts key insights from web pages using OpenAI's GPT-4o
+- **External Knowledge Enhancement**: Combines page content with GPT's knowledge for more comprehensive insights
+- **Category Classification**: Organizes insights into categories (Technology, Business, Science, Health, Education, Entertainment)
+- **Collapsible Insight Groups**: View insights organized by source webpage with expandable sections
 
-## Installation
+### Time Tracking and Analytics
+- **Browsing Time Statistics**: Tracks time spent on different websites
+- **Spider Chart Visualization**: Visual representation of time spent across different content categories
+- **Detailed History**: Maintains a browsing history with time spent on each page
+- **Statistics Dashboard**: View your total browsing time, average time per site, and most visited domains
 
-### From Source Code
+### Modes and Settings
+- **Always On Mode**: Toggle to automatically analyze all web pages you visit
+- **Manual Analysis**: Button to analyze the current page on demand
+- **Force Refresh**: Re-analyze pages even if insights already exist
+- **Data Export**: Export your browsing history and statistics to CSV
 
-1. Clone this repository:
-   ```
-   git clone https://github.com/shan-kmr/browser-history-parser.git
-   ```
+## Setup and Configuration
 
-2. Open Chrome and navigate to `chrome://extensions/`
+### Installation
+1. Download the extension files
+2. Load the extension in developer mode in your browser:
+   - Open Chrome/Edge and navigate to `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked" and select the extension directory
 
-3. Enable "Developer mode" by toggling the switch in the top right corner
+### OpenAI API Key Setup
+1. Click on the "Reading Insights" tab in the extension popup
+2. Enter your OpenAI API key in the input field
+3. Click "Save API Key"
+4. Your key is securely stored locally and only used for API calls to OpenAI
 
-4. Click "Load unpacked" and select the directory containing the extension files
+> **Important**: You must have a valid OpenAI API key with access to GPT-4o. API calls will be billed to your OpenAI account based on their pricing.
 
-5. The extension should now be installed and active
+## Usage Guide
 
-## Usage
+### Basic Navigation
+- Click the extension icon to open the popup
+- Navigate between tabs to access different features:
+  - **History**: View your browsing history with time statistics
+  - **Time Stats**: See detailed time spent analysis
+  - **Reading Insights**: Access AI-generated insights from web pages
 
-- Click the extension icon in your Chrome toolbar to view your browsing history
-- Use the search box to find specific sites
-- Filter your history by time period or domain
-- Click on any entry to visit that site
-- Use the "Export History to CSV" button to save your history
+### Analyzing Web Pages
+- **Manual Analysis**:
+  1. Navigate to a web page you want to analyze
+  2. Click the extension icon to open the popup
+  3. Click "Analyze this page" to extract insights
 
-## Privacy
+- **Automatic Analysis**:
+  1. Enable the "Always analyze pages" toggle
+  2. Browse normally and Rex will automatically analyze all pages you visit
+  3. Check the "Reading Insights" tab to view collected insights
 
-This extension only stores browsing history locally in your browser using Chrome's storage API. No data is sent to external servers or third parties.
+### Reading Insights Features
+- **Spider Chart**: Visual representation of your reading patterns by category
+- **Category Filters**: Click on category buttons to filter insights
+- **Search**: Use the search box to find specific insights
+- **Refresh**: Force a new analysis of the current page with the "Refresh" button
+- **Clear All**: Remove all reading insights with the "Clear All" button
+
+### Time Statistics
+- View breakdowns of time spent by domain
+- See your total browsing time across all sites
+- Identify your most visited domains and categories
+
+## Privacy and Data Storage
+- All data is stored locally in your browser
+- No data is sent to external servers except for content sent to OpenAI for analysis
+- Your API key is stored securely in your browser's local storage
+- You can clear all stored data at any time using the clear buttons
+
+## Troubleshooting
+- If insights aren't being generated, check that your API key is valid
+- If the extension isn't tracking time correctly, try refreshing the page
+- If you encounter errors, check the browser console for more details
+
+## Technical Details
+- The extension uses Chrome's storage API to maintain browsing data
+- Time tracking is performed while pages are active and visible
+- Content is extracted from pages using DOM traversal techniques
+- OpenAI's GPT-4o model is used for content analysis
 
 ## License
 
